@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TERRACASA | Smart Dashboard</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4A5D23">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons (CDN) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'tc-black': '#1a1a1a',
+                        'tc-white': '#ffffff',
+                        'tc-gray': '#333333',
+                        'tc-olive': '#4A5D23', /* 테라까사 올리브 그린 */
+                        'tc-yellow': '#EAB308', /* 테라까사 옐로우 (포인트) */
+                        'tc-light': '#F9FAFB',
+                    },
+                    fontFamily: {
+                        sans: ['Pretendard', 'Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        };
+    </script>
+
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body { 
+            font-family: 'Pretendard', sans-serif; 
+            background-color: #f3f4f6; 
+            -webkit-tap-highlight-color: transparent;
+            word-break: keep-all;
+        }
+
+        .dashboard-container {
+            width: 100%;
+            max-width: 480px; /* 모바일 중심 레이아웃 */
+            margin: 0 auto;
+            min-height: 100vh;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .menu-card {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid #e5e7eb;
+        }
+
+        .menu-card:active {
+            transform: scale(0.97);
+            background-color: #f9fafb;
+        }
+
+        .brand-gradient {
+            background: linear-gradient(135deg, #4A5D23 0%, #3a4a1c 100%);
+        }
+
+        .icon-box {
+            background-color: rgba(74, 93, 35, 0.1);
+            color: #4A5D23;
+        }
+
+        .admin-icon-box {
+            background-color: rgba(234, 179, 8, 0.1);
+            color: #EAB308;
+        }
+
+        .hidden { display: none !important; }
+
+        /* 애니메이션 효과 */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeInUp 0.4s ease forwards;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div class="dashboard-container shadow-2xl relative overflow-hidden">
+        
+        <!-- 상단 헤더 섹션 -->
+        <header class="brand-gradient pt-12 pb-14 px-6 text-center relative">
+            <!-- 배경 패턴 -->
+            <div class="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="1"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#grid)" />
+                </svg>
+            </div>
+
+            <div class="relative z-10 flex flex-col items-center">
+                <!-- 로고 이미지 크기 1.5배 확대 적용 (h-28 -> h-40) -->
+                <img src="테라까사-로고.png" alt="TERRACASA" class="h-40 mb-4 brightness-0 invert pointer-events-none" onerror="this.style.display='none'; document.getElementById('text-logo').style.display='block';">
+                
+                <!-- 이미지 로드 실패 시 대체 텍스트 로고 -->
+                <h1 id="text-logo" class="hidden text-3xl font-black text-white tracking-tighter mb-2">TERRACASA</h1>
+                
+                <p class="text-white/70 text-[11px] font-medium tracking-tight mt-2">통합 스마트 대시보드 시스템</p>
+            </div>
+            
+            <!-- 탭 전환 버튼 -->
+            <div class="relative z-10 mt-8 flex justify-center bg-black/20 p-1 rounded-full max-w-[210px] mx-auto shadow-inner">
+                <button onclick="switchTab('customer')" id="btn-tab-customer" class="flex-1 py-1.5 rounded-full text-[11px] font-bold transition-all bg-white text-tc-olive shadow-sm">고객 센터</button>
+                <button onclick="switchTab('admin')" id="btn-tab-admin" class="flex-1 py-1.5 rounded-full text-[11px] font-bold transition-all text-white/60">관리자 모드</button>
+            </div>
+        </header>
+
+        <!-- 메인 콘텐츠 섹션 -->
+        <main class="flex-1 px-6 -mt-6 relative z-20 pb-10">
+            
+            <!-- [탭 1: 고객 센터] -->
+            <div id="view-customer" class="flex flex-col gap-3">
+                <a href="https://terracasa.co.kr" target="_blank" class="menu-card bg-white p-4 rounded-2xl flex items-center gap-4 shadow-sm animate-fade-in">
+                    <div class="icon-box w-12 h-12 rounded-xl flex items-center justify-center shrink-0">
+                        <i data-lucide="globe" class="w-6 h-6"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h2 class="text-[15px] font-bold text-tc-black">공식 홈페이지</h2>
+                        <p class="text-gray-400 text-[11px]">테라까사 제품 라인업 확인</p>
+                    </div>
+                    <i data-lucide="chevron-right" class="text-gray-300 w-4 h-4"></i>
+                </a>
+
+                <!-- 네이버 블로그 스타일 아이콘 -->
+                <a href="https://blog.naver.com/terracasa_" target="_blank" class="menu-card bg-white p-4 rounded-2xl flex items-center gap-4 shadow-sm animate-fade-in" style="animation-delay: 0.1s">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-[#03C75A] text-white shadow-sm shadow-[#03C75A]/20">
+                        <svg viewBox="0 0 24 24" class="w-7 h-7 fill-current" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M16.172 11c.566 0 1.02.484 1.02 1.08 0 .596-.454 1.08-1.02 1.08h-2.138v-2.16h2.138zm-2.138-4.32V8.84h1.666c.567 0 1.02.484 1.02 1.08 0 .596-.453 1.08-1.02 1.08H14.034V6.68h-.001zM19 2H5a3 3 0 00-3 3v14a3 3 0 003 3h14a3 3 0 003-3V5a3 3 0 00-3-3zm-4.966 15.48h-4.41V6.68h4.41c1.768 0 3.201 1.51 3.201 3.372 0 .89-.338 1.696-.884 2.304.838.604 1.385 1.59 1.385 2.704 0 2.106-1.66 3.82-3.703 3.82z" />
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <h2 class="text-[15px] font-bold text-tc-black">공식 블로그</h2>
+                        <p class="text-gray-400 text-[11px]">최신 시공 사례 및 소식</p>
+                    </div>
+                    <i data-lucide="chevron-right" class="text-gray-300 w-4 h-4"></i>
+                </a>
+
+                <!-- 유튜브 채널 링크 -->
+                <a href="https://www.youtube.com/@테라까사TERRACASA" target="_blank" class="menu-card bg-white p-4 rounded-2xl flex items-center gap-4 shadow-sm animate-fade-in" style="animation-delay: 0.2s">
+                    <div class="icon-box w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-red-50 text-red-600">
+                        <i data-lucide="youtube" class="w-6 h-6"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h2 class="text-[15px] font-bold text-tc-black">공식 유튜브</h2>
+                        <p class="text-gray-400 text-[11px]">테라까사 TERRACASA 채널</p>
+                    </div>
+                    <i data-lucide="chevron-right" class="text-gray-300 w-4 h-4"></i>
+                </a>
+
+                <!-- 인스타그램 -->
+                <a href="https://instagram.com/terra__casa" target="_blank" class="menu-card bg-white p-4 rounded-2xl flex items-center gap-4 shadow-sm animate-fade-in" style="animation-delay: 0.25s">
+                    <div class="icon-box w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-pink-50 text-pink-600">
+                        <i data-lucide="instagram" class="w-6 h-6"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h2 class="text-[15px] font-bold text-tc-black">공식 인스타그램</h2>
+                        <p class="text-gray-400 text-[11px]">디자인 가이드 및 인테리어 팁</p>
+                    </div>
+                    <i data-lucide="chevron-right" class="text-gray-300 w-4 h-4"></i>
+                </a>
+
+                <!-- 셀프 견적기 -->
+                <a href="./quotation/" class="menu-card bg-white p-4 rounded-2xl flex items-center gap-4 shadow-sm border-2 border-tc-olive/10 animate-fade-in" style="animation-delay: 0.3s">
+                    <div class="bg-tc-olive text-white w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-tc-olive/20">
+                        <i data-lucide="calculator" class="w-6 h-6"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-[15px] font-bold text-tc-black">셀프 견적 계산기</h2>
+                            <span class="bg-tc-yellow text-[9px] text-white px-1.5 py-0.5 rounded-full font-bold">SMART</span>
+                        </div>
+                        <p class="text-gray-400 text-[11px]">실시간 시공비 견적 산출</p>
+                    </div>
+                    <i data-lucide="chevron-right" class="text-gray-300 w-4 h-4"></i>
+                </a>
+            </div>
+
+            <!-- [탭 2: 관리자 인증] -->
+            <div id="view-admin-auth" class="hidden flex flex-col items-center justify-center py-10 animate-fade-in">
+                <div class="bg-gray-50 p-8 rounded-3xl border border-gray-200 w-full text-center">
+                    <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="lock" class="text-gray-500 w-8 h-8"></i>
+                    </div>
+                    <h2 class="text-lg font-bold text-tc-black mb-1">관리자 인증</h2>
+                    <p class="text-gray-400 text-xs mb-6">서비스 관리를 위해 비밀번호를 입력하세요.</p>
+                    
+                    <input type="password" id="admin-pw" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-center text-xl tracking-[0.5em] mb-4 focus:outline-none focus:border-tc-olive focus:ring-1 focus:ring-tc-olive" placeholder="****">
+                    
+                    <button onclick="checkAdminPassword()" class="w-full bg-tc-black text-white py-3 rounded-xl font-bold hover:bg-tc-olive transition-colors">접속하기</button>
+                    <p id="auth-error" class="text-red-500 text-[11px] mt-3 hidden">비밀번호가 일치하지 않습니다.</p>
+                </div>
+            </div>
+
+            <!-- [탭 3: 관리자 메뉴] -->
+            <div id="view-admin-menu" class="hidden flex flex-col gap-3 animate-fade-in">
+                <div class="flex items-center justify-between mb-2 px-2">
+                    <h3 class="text-xs font-bold text-tc-olive uppercase tracking-widest">Administrator Menu</h3>
+                    <button onclick="logoutAdmin()" class="text-[10px] text-gray-400 underline">로그아웃</button>
+                </div>
+
+                <a href="./quotation/" class="menu-card bg-white p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+                    <div class="admin-icon-box w-12 h-12 rounded-xl flex items-center justify-center shrink-0">
+                        <i data-lucide="file-text" class="w-6 h-6"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h2 class="text-[15px] font-bold text-tc-black">스마트 견적서 작성</h2>
+                        <p class="text-gray-400 text-[11px]">정식 발주용 통합 견적 시스템</p>
+                    </div>
+                    <i data-lucide="chevron-right" class="text-gray-300 w-4 h-4"></i>
+                </a>
+
+                <a href="./contract/" class="menu-card bg-white p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+                    <div class="admin-icon-box w-12 h-12 rounded-xl flex items-center justify-center shrink-0">
+                        <i data-lucide="pen-tool" class="w-6 h-6"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h2 class="text-[15px] font-bold text-tc-black">계약서 작성 (분담이행방식)</h2>
+                        <p class="text-gray-400 text-[11px]">전자 계약 및 특약사항 생성</p>
+                    </div>
+                    <i data-lucide="chevron-right" class="text-gray-300 w-4 h-4"></i>
+                </a>
+            </div>
+
+            <!-- 홍보용 배너/알림 -->
+            <div id="notice-banner" class="mt-8 p-6 rounded-2xl bg-gray-50 border border-dashed border-gray-300 animate-fade-in" style="animation-delay: 0.4s">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="megaphone" class="w-4 h-4 text-tc-olive"></i>
+                    <span class="text-xs font-bold text-tc-olive uppercase tracking-tighter">Information</span>
+                </div>
+                <p id="notice-text" class="text-[12px] text-gray-600 leading-relaxed">
+                    테라까사는 고객님의 스마트한 소비를 응원합니다. 대시보드를 통해 필요한 정보를 쉽고 빠르게 확인하세요.
+                </p>
+            </div>
+        </main>
+
+        <!-- 하단 푸터 -->
+        <footer class="py-8 px-6 text-center bg-white border-t border-gray-100">
+            <div class="flex justify-center gap-4 mb-4">
+                <a href="https://instagram.com/terra__casa" target="_blank" class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-tc-olive transition">
+                    <i data-lucide="instagram" class="w-4 h-4"></i>
+                </a>
+                <a href="#" class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-tc-olive transition">
+                    <i data-lucide="message-circle" class="w-4 h-4"></i>
+                </a>
+            </div>
+            <p class="text-[10px] text-gray-400 font-medium uppercase tracking-[0.2em] mb-1">Work with Smart Consumers!</p>
+            <p class="text-[9px] text-gray-300 uppercase">© 2026 SIGNITY Co., Ltd. All Rights Reserved.</p>
+        </footer>
+    </div>
+
+    <script>
+        // Lucide 아이콘 초기화
+        lucide.createIcons();
+
+        let isAdminAuthenticated = false;
+
+        function switchTab(tab) {
+            const customerView = document.getElementById('view-customer');
+            const adminAuthView = document.getElementById('view-admin-auth');
+            const adminMenuView = document.getElementById('view-admin-menu');
+            const btnCustomer = document.getElementById('btn-tab-customer');
+            const btnAdmin = document.getElementById('btn-tab-admin');
+            const noticeText = document.getElementById('notice-text');
+
+            // 버튼 스타일 초기화
+            btnCustomer.className = "flex-1 py-1.5 rounded-full text-[11px] font-bold transition-all text-white/60";
+            btnAdmin.className = "flex-1 py-1.5 rounded-full text-[11px] font-bold transition-all text-white/60";
+
+            // 뷰 초기화
+            customerView.classList.add('hidden');
+            adminAuthView.classList.add('hidden');
+            adminMenuView.classList.add('hidden');
+
+            if (tab === 'customer') {
+                customerView.classList.remove('hidden');
+                btnCustomer.className = "flex-1 py-1.5 rounded-full text-[11px] font-bold transition-all bg-white text-tc-olive shadow-sm";
+                noticeText.textContent = "테라까사는 고객님의 스마트한 소비를 응원합니다. 대시보드를 통해 필요한 정보를 쉽고 빠르게 확인하세요.";
+            } else {
+                btnAdmin.className = "flex-1 py-1.5 rounded-full text-[11px] font-bold transition-all bg-white text-tc-olive shadow-sm";
+                noticeText.textContent = "관리자 모드입니다. 보안에 유의하여 사용해 주시기 바랍니다.";
+                if (isAdminAuthenticated) {
+                    adminMenuView.classList.remove('hidden');
+                } else {
+                    adminAuthView.classList.remove('hidden');
+                }
+            }
+        }
+
+        function checkAdminPassword() {
+            const pwInput = document.getElementById('admin-pw');
+            const errorMsg = document.getElementById('auth-error');
+            
+            if (pwInput.value === '0212') {
+                isAdminAuthenticated = true;
+                errorMsg.classList.add('hidden');
+                document.getElementById('view-admin-auth').classList.add('hidden');
+                document.getElementById('view-admin-menu').classList.remove('hidden');
+                pwInput.value = '';
+            } else {
+                errorMsg.classList.remove('hidden');
+                pwInput.value = '';
+                pwInput.focus();
+            }
+        }
+
+        function logoutAdmin() {
+            isAdminAuthenticated = false;
+            switchTab('customer');
+        }
+
+        // 엔터키 입력 지원
+        document.getElementById('admin-pw').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') checkAdminPassword();
+        });
+
+        // PWA 서비스워커 등록
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js')
+                .then(() => console.log('Service Worker registered'))
+                .catch(err => console.log('SW registration failed:', err));
+        }
+    </script>
+</body>
+</html>

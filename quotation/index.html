@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TERRACASA 스마트 통합 견적 시스템</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- html2canvas (이미지 캡처) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- jsPDF (PDF 생성) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'tc-black': '#1a1a1a',
+                        'tc-white': '#ffffff',
+                        'tc-gray': '#333333',
+                        'tc-olive': '#4A5D23', /* 테라까사 올리브 그린 */
+                        'tc-yellow': '#EAB308', /* 테라까사 옐로우 (포인트) */
+                        'tc-light': '#F9FAFB',
+                    },
+                    fontFamily: {
+                        sans: ['Pretendard', 'Noto Sans KR', 'sans-serif'],
+                    },
+                    screens: {
+                        'print': {'raw': 'print'},
+                    }
+                }
+            }
+        };
+    </script>
+
+    <!-- 분리된 CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-50 py-4 px-2 md:py-10 md:px-4">
+
+    <!-- 로딩 -->
+    <div id="loading-overlay" class="hidden">
+        <div class="spinner"></div>
+        <div class="text-center font-bold text-lg text-tc-olive">견적서 PDF 생성 중...</div>
+    </div>
+
+    <!-- 네비게이션 -->
+    <div class="w-full max-w-[1200px] mx-auto mb-6 flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border-l-4 border-tc-olive">
+        <div class="flex items-center gap-3">
+            <a href="../" class="flex items-center gap-1 text-sm text-gray-400 hover:text-tc-olive transition no-underline" style="text-decoration:none;">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                대시보드
+            </a>
+            <h1 class="text-xl font-bold text-tc-olive">TERRACASA 통합 견적서</h1>
+        </div>
+        <button onclick="location.reload()" class="text-sm text-gray-400 hover:text-tc-olive underline transition">초기화</button>
+    </div>
+
+    <!-- 메인 컨테이너 -->
+    <div class="app-container rounded-lg overflow-hidden">
+
+        <div id="capture-area" class="capture-area">
+            <!-- 헤더: 가운데 정렬 -->
+            <div class="text-center mb-8 pb-6 border-b-2 border-tc-olive">
+                <span class="text-sm font-bold text-tc-olive tracking-[0.4em] uppercase mb-2 block">Work with Smart Consumers!</span>
+                <h1 class="text-5xl font-black text-black tracking-tight">TERRACASA QUOTATION</h1>
+            </div>
+
+            <div class="flex flex-col md:flex-row border border-gray-300 mb-8 rounded-sm overflow-hidden">
+                <!-- 공급자 정보 -->
+                <div class="w-full md:w-1/2 p-6 border-b md:border-b-0 md:border-r border-gray-300">
+                    <h3 class="font-extrabold text-tc-olive mb-4 text-xs uppercase tracking-wider">Supplier (공급자)</h3>
+                    <div class="grid grid-cols-[70px_1fr] gap-y-2 text-sm text-gray-700">
+                        <div class="text-gray-400 font-medium">상호</div>
+                        <div>
+                            <div class="font-bold text-lg text-black" id="supplier-name">(주)시그니티</div>
+                            <div class="text-xs text-gray-400 mt-1" id="supplier-biz-no">사업자등록번호 : 524-81-02411</div>
+                        </div>
+                        <div class="text-gray-400 font-medium">담당자</div><div class="font-bold" id="supplier-manager">최재훈</div>
+                        <div class="text-gray-400 font-medium">연락처</div><div class="font-bold" id="supplier-phone">1800-9512 / 010-8132-9047</div>
+                        <div class="text-gray-400 font-medium">이메일</div><div id="supplier-email">Terracasa_@naver.com</div>
+                    </div>
+                </div>
+                <!-- 고객 정보 -->
+                <div class="w-full md:w-1/2 p-6 bg-[#FAFAFA]">
+                    <h3 class="font-extrabold text-tc-olive mb-4 text-xs uppercase tracking-wider">Customer (발주자)</h3>
+                    <div class="grid grid-cols-[70px_1fr_70px_1fr] gap-y-3 gap-x-2 text-sm items-center">
+                        <div class="text-tc-olive font-bold">견적일</div>
+                        <div id="view-date" class="text-base font-bold text-black border-b border-gray-300 pb-1 w-full"></div>
+                        <div class="text-gray-500 font-semibold">설치일</div>
+                        <input type="date" id="install-date" class="input-base bg-white">
+
+                        <div class="text-gray-500 font-semibold">성함</div>
+                        <input type="text" id="cust-name" class="input-base font-bold bg-white" placeholder="고객명 (미입력시 VIP)">
+                        <div class="text-gray-500 font-semibold">연락처</div>
+                        <input type="text" id="cust-phone" class="input-base bg-white" placeholder="010-0000-0000" type="tel">
+
+                        <div class="text-gray-500 font-semibold self-start mt-1">주소</div>
+                        <div class="flex flex-col gap-1 w-full col-span-3">
+                            <div class="flex gap-1 w-full">
+                                <select id="region-do" class="input-base w-1/2 bg-white" onchange="handleRegionChange(this)"><option value="">시/도</option></select>
+                                <select id="region-si" class="input-base w-1/2 bg-white" disabled><option value="">시/군/구</option></select>
+                            </div>
+                            <input type="text" id="cust-addr-detail" class="input-base bg-white" placeholder="상세주소">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 모바일 안내 -->
+            <div class="md:hidden text-xs text-tc-yellow font-bold mb-1 text-right">↔ 좌우로 밀어서 확인</div>
+
+            <div class="section-header">1. 제품 상세 내역 (Product Details)</div>
+            <div class="mb-4">
+                <div class="table-wrapper">
+                    <table class="excel-table">
+                        <colgroup><col width="40"><col width="160"><col width="140"><col width="80"><col width="160"><col width="40"><col width="40"><col width="90"><col width="100"><col width="40" class="hidden-on-print"></colgroup>
+                        <thead><tr><th>No.</th><th>품명</th><th>규격</th><th>색상</th><th>옵션 (추가사항)</th><th>단위</th><th>수량</th><th>단가</th><th>공급가액</th><th class="hidden-on-print">삭제</th></tr></thead>
+                        <tbody id="est-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="text-center py-3 bg-gray-50 border border-t-0 border-gray-300 hidden-on-print rounded-b"><button onclick="addRow()" class="text-xs font-bold text-tc-olive hover:underline py-1 w-full block">+ 제품 추가</button></div>
+            </div>
+
+            <div class="section-header">2. 행정 처리 비용 (Administrative Costs)</div>
+            <div class="mb-4">
+                <div class="table-wrapper">
+                    <table class="excel-table" id="admin-table">
+                        <colgroup><col width="160"><col width="200"><col width="50"><col width="60"><col width="110"><col width="110"><col width="40" class="hidden-on-print"></colgroup>
+                        <thead><tr><th>행정명</th><th>상세내용</th><th>단위</th><th>수량</th><th>단가</th><th>공급가액</th><th class="hidden-on-print">삭제</th></tr></thead>
+                        <tbody id="admin-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="text-center py-3 bg-gray-50 border border-t-0 border-gray-300 hidden-on-print flex flex-col md:flex-row justify-center gap-2 rounded-b px-4 flex-wrap">
+                    <button onclick="restoreAdminItem('감리비')" class="text-xs font-bold text-tc-olive hover:text-green-800 underline py-1 border border-gray-300 rounded bg-white px-3 shadow-sm">+ 감리비</button>
+                    <button onclick="restoreAdminItem('공과잡비')" class="text-xs font-bold text-gray-600 hover:text-black underline py-1 border border-gray-300 rounded bg-white px-3 shadow-sm">+ 공과잡비</button>
+                    <button onclick="restoreAdminItem('기업이윤')" class="text-xs font-bold text-tc-yellow hover:text-yellow-700 underline py-1 border border-gray-300 rounded bg-white px-3 shadow-sm">+ 기업이윤</button>
+                    <button onclick="restoreAdminItem('선급금이행증권')" class="text-xs font-bold text-gray-500 hover:text-gray-800 underline py-1 border border-gray-300 rounded bg-white px-3 shadow-sm">+ 선급금이행증권</button>
+                    <button onclick="restoreAdminItem('하자이행증권')" class="text-xs font-bold text-gray-500 hover:text-gray-800 underline py-1 border border-gray-300 rounded bg-white px-3 shadow-sm">+ 하자이행증권</button>
+                </div>
+            </div>
+
+            <div class="section-header">3. 시공 및 기타 부대비용 (Construction & Others)</div>
+            <div class="mb-6">
+                <div class="table-wrapper">
+                    <table class="excel-table" id="construction-table">
+                        <colgroup><col width="120"><col width="180"><col width="180"><col width="40"><col width="40"><col width="110"><col width="110"><col width="40" class="hidden-on-print"></colgroup>
+                        <thead><tr><th>구분</th><th>항목명</th><th>상세내용</th><th>단위</th><th>수량</th><th>단가</th><th>공급가액</th><th class="hidden-on-print">삭제</th></tr></thead>
+                        <tbody id="cons-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="text-center py-3 bg-gray-50 border border-t-0 border-gray-300 hidden-on-print flex flex-col md:flex-row justify-center gap-2 rounded-b px-4 flex-wrap">
+                    <button onclick="addGenericDirectConsRow()" class="text-xs font-bold text-tc-olive hover:text-green-800 underline py-1 border border-gray-300 rounded bg-white px-3 shadow-sm">+ 직접공사비</button>
+                    <button onclick="addFoundationRow()" class="text-xs font-bold text-gray-600 hover:text-black underline py-1 border border-gray-300 rounded bg-white px-3 shadow-sm">+ 직접공사비(기초석)</button>
+                    <button onclick="addIronworkRow()" class="text-xs font-bold text-gray-600 hover:text-black underline py-1 border border-gray-300 rounded bg-white px-3 shadow-sm">+ 직접공사비(철물)</button>
+                    <button onclick="addMeasurementRow()" class="text-xs font-bold text-tc-yellow hover:text-yellow-700 underline py-1 border border-gray-300 rounded bg-white px-3 shadow-sm">+ 직접공사비(실측)</button>
+                    <button onclick="addLiftingRow()" class="text-xs font-bold text-gray-500 hover:text-gray-800 underline py-1 border border-gray-300 rounded bg-white px-3 shadow-sm">+ 자재반입비(양중)</button>
+                    <button onclick="addDeckRow()" class="text-xs font-bold text-teal-600 hover:text-teal-800 underline py-1 border border-gray-300 rounded bg-white px-3 shadow-sm">+ 자체공사비(데크)</button>
+                    <button onclick="addConsRow()" class="text-xs font-bold text-gray-500 hover:text-gray-800 underline py-1 border border-gray-300 rounded bg-white px-3 shadow-sm">+ 기타 항목</button>
+                </div>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-6 mb-8">
+                <div class="w-full lg:w-2/3">
+                    <div class="border border-gray-300 rounded p-4 h-full bg-white relative shadow-sm">
+                        <h4 class="text-xs font-bold text-tc-olive mb-3">NOTE / REMARKS (특이사항)</h4>
+                        <textarea id="remarks-area" class="w-full h-24 md:h-32 border-none text-xs resize-none focus:outline-none text-gray-700 leading-relaxed" placeholder="납기일, 배송 조건, 현장 특이사항 등을 입력하세요."></textarea>
+                        <div id="discount-message-area" class="mt-3 border-t pt-2 border-gray-100 space-y-2"></div>
+                    </div>
+                </div>
+                <div class="w-full lg:w-1/3">
+                    <table class="w-full text-xs border-collapse">
+                        <tr class="border-b border-gray-200"><td class="py-2 text-gray-500">제품 합계</td><td class="py-2 text-right font-medium text-gray-700" id="val-prod-sum">0</td></tr>
+                        <tr class="border-b border-gray-200"><td class="py-2 text-gray-500">행정비용 합계</td><td class="py-2 text-right font-medium text-gray-700" id="val-admin-sum">0</td></tr>
+                        <tr class="border-b border-gray-200"><td class="py-2 text-gray-500">시공/기타 합계</td><td class="py-2 text-right font-medium text-gray-700" id="val-cons-sum">0</td></tr>
+                        <tr class="border-b border-gray-200 bg-gray-50"><td class="py-2 font-bold text-gray-700 pl-2">총 공급가액</td><td class="py-2 text-right font-bold pr-2" id="val-supply">0</td></tr>
+                        <tr class="border-b border-gray-200"><td class="py-2 text-gray-500 pl-2">부가세 (VAT)</td><td class="py-2 text-right font-medium pr-2" id="val-tax">0</td></tr>
+                        <tr class="bg-gray-100 border-t-2 border-tc-olive"><td class="py-3 pl-3 font-bold text-lg text-black">총 견적금액</td><td class="py-3 pr-3 text-right font-black text-2xl text-tc-olive">₩ <span id="val-total">0</span></td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 하단 유의사항 -->
+            <div class="notice-box">
+                <h4 class="notice-title">[가견적 유의사항 및 특약설명]</h4>
+                <div class="notice-list" style="column-count:2; column-gap:24px;">
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>테라까사는 지역별로, 제품별로 다른 운영사에 의해 운영되는 익스테리어 전문 브랜드입니다</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>테라까사는 국내 최저 수준의 가격을 추구합니다. 발주와 동시에 발주처에 제품가액을 전액 지불함으로 계약시 제품가액 완납이 필수입니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>테라까사는 제품판매가 중심인 회사로, 감리비 및 현장관리비 없이 효율적인 진행을 위해 제품 발주 후 시공 업무는 전문 시공팀에 전적으로 위임하고 있습니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>추후 계약시 시공사업자와 직계약될 수 있습니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>시공비는 제품비와 별도 정산되며, 입금 계좌 역시 시공팀 전용 계좌로 구분되어 있습니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>대금 지급이 일괄적으로 처리되는 경우에도 별도의 감리비 및 현장관리비 지급이 되지 않았다면, 발주 이후 시공 관련 책임은 전적으로 시공팀에 귀속됩니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>시공비는 시공 당일 시공완료 후 즉시 지급되어야 합니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>청구되는 시공비의 경우 기본 시공비로 현장 여건에 따라 추가 될 수 있습니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>현장 특성 상 주춧돌이나 몰탈 등의 지반 추가 작업 필요 시 200,000원 추가 비용 발생할 수 있습니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>전동 시공시 전선이 파고라 설치아래까지 나와있지 않은경우 전기 연장비용이 200,000원 추가 발생할 수 있습니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>현장 반입 이슈 발생시 양중 비용 추가 발생 할 수 있습니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>건설현장 사다리 보조의 경우 견적에 포함되어 있지 않으니 필요한 현장의 경우 별도 요청 부탁드립니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>사전 협의되지 않은 현장 변동으로 인한 시공 추가금액은 별도로 청구됩니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>양중비의 경우 청구금액이 초과되는 경우 추가 청구 될 수 있습니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>부득이하게 시공비의 일괄 처리가 필요하다면(관공서, 건설사 등) 별도의 "통합 견적서"를 요청 부탁드립니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>서울 경기 외 출장비가 추가되며 도서 산간의 경우 추가 출장비가 발생 할 수 있습니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>글라스슬라이딩의 경우 최소 시공비 60만원이 기본으로 발생하며 9짝 부터는 1짝당 7만원의 시공비가 발생합니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>Deck(데크) 공사의 경우 당사의 제품품목이 아닌 시공팀의 별도 서비스 품목임으로 당사 제품 공사와는 무관합니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>장바의 자연스러운 처짐 현상은 제품 하자로 접수하지 않습니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>견적중 수식이 안걸려있거나, 오기로 인한 견적착오는 향후 반영 될수 있사오니 적극 검토 부탁드립니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>견적유효기간 이후 반영되는 단가 인상은 소급적용하기 어려우니 양해 부탁드립니다.</span></div>
+                    <div class="notice-item"><span class="notice-bullet">*</span><span>견적 유효기간은 2주입니다.</span></div>
+                </div>
+            </div>
+
+            <!-- Footer: ID added for dynamic update -->
+            <div id="footer-info" class="mt-8 text-center text-xs text-gray-400 pb-4">(주)시그니티 | 담당자: 최재훈 | 연락처: 010-8132-9047</div>
+        </div>
+    </div>
+
+    <!-- 하단 고정 버튼 -->
+    <div class="fixed bottom-0 left-0 w-full bg-white border-t p-4 flex justify-center gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50">
+        <button onclick="saveAsPDF()" class="btn-olive font-bold py-3 px-10 rounded-full shadow-lg text-lg flex items-center justify-center gap-2 hover:scale-105 transition transform">
+            <span>💾 PDF 견적서 저장</span>
+        </button>
+    </div>
+
+    <!-- PDF 생성을 위한 숨겨진 컨테이너 -->
+    <div id="pdf-hidden-container"></div>
+
+    <!-- 분리된 JS -->
+    <script src="app.js"></script>
+</body>
+</html>

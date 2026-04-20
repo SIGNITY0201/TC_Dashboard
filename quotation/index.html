@@ -13,6 +13,29 @@
     <!-- jsPDF (PDF 생성) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
+    <!-- Firebase SDK (CRM 연동) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script>
+      // Firebase 초기화 → OSKA CRM 연동
+      (function() {
+        try {
+          const app = firebase.initializeApp({
+            apiKey: "AIzaSyDs8IJANSBncJHcFFrF03pLM7JvEOppcY0",
+            authDomain: "oska-integrated-management.firebaseapp.com",
+            projectId: "oska-integrated-management"
+          });
+          firebase.auth().signInAnonymously()
+            .then(function() {
+              window.TC_QUOTE_DB = firebase.firestore();
+              console.log('[CRM] Firebase 연결 완료');
+            })
+            .catch(function(err) { console.error('[CRM] Firebase Auth Error:', err); });
+        } catch(e) { console.error('[CRM] Firebase 초기화 실패:', e); }
+      })();
+    </script>
+
     <script>
         tailwind.config = {
             theme: {

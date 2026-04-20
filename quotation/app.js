@@ -1164,6 +1164,9 @@ async function saveAsPDF() {
 
         doc.save(fileName);
 
+        // CRM 자동 저장
+        try { await saveQuotationToCRM(); } catch(crmErr) { console.error('[CRM] 저장 실패:', crmErr); }
+
     } catch (err) {
         console.error(err);
         alert('PDF 생성 중 오류가 발생했습니다.\n' + err.message);
@@ -1242,5 +1245,96 @@ function syncInputValues(originalDom, clonedDom) {
          if (originalMsgs.length > 0) {
              originalMsgs.forEach(msg => clonedMsgArea.appendChild(msg.cloneNode(true)));
          }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// [CRM 연동] 견적 저장 시 OSKA CRM에 고객 자동 등록
+// ═══════════════════════════════════════════════════════════════
+async function saveQuotationToCRM() {
+    if (!window.TC_QUOTE_DB) { console.warn('[CRM] Firebase 미연결 — CRM 저장 건너뜀'); return; }
+    try {
+        const cName = (document.getElementById('cust-name').value || '').trim();
+        const cPhone = (document.getElementById('cust-phone').value || '').trim();
+        const province = (document.getElementById('region-do').value || '').trim();
+        const district = (document.getElementById('region-si').value || '').trim();
+        const addrDetail = (document.getElementById('cust-addr-detail')?.value || '').trim();
+        const totalPrice = (document.getElementById('val-total').textContent || '0').trim();
+
+        // 전화번호 없으면 CRM 저장 불가
+        if (!cPhone) { console.log('[CRM] 전화번호 없음 — CRM 저장 건너뜀'); return; }
+
+        // 전화번호 정규화 (하이픈 포맷 통일: 010-0000-0000)
+        const phoneDigits = cPhone.replace(/[^0-9]/g, '');
+        const phoneFormatted = phoneDigits.length === 11
+            ? phoneDigits.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')
+            : phoneDigits.length === 10
+            ? phoneDigits.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
+            : cPhone;
+
+        // 견적 품목 수집
+        const products = [];
+        document.querySelectorAll('#est-tbody tr').forEach(tr => {
+            const prodSelect = tr.querySelector('td:nth-child(2) select');
+            const customInput = tr.querySelector('td:nth-child(2) input[type="text"]');
+            let prodName = '';
+            if (prodSelect && !prodSelect.classList.contains('force-hidden')) prodName = prodSelect.value;
+            else if (customInput && !customInput.classList.contains('force-hidden')) prodName = customInput.value;
+            if (prodName && prodName !== '제품 선택') products.push(prodName);
+        });
+        const productStr = products.join(', ');
+        const quoteNote = `[견적 ${new Date().toLocaleDateString('ko-KR')}] 금액: ₩${totalPrice} / 품목: ${productStr}`;
+
+        // 동일 전화번호 고객 존재 확인 (정확한 쿼리 — 전체 스캔 방지)
+        const existSnap = await window.TC_QUOTE_DB.collection('crm_customers').where('phone', '==', phoneFormatted).get();
+        let existingDoc = existSnap.empty ? null : existSnap.docs[0];
+
+        if (existingDoc) {
+            // 기존 고객 → content에 견적 이력 추가
+            const prevContent = existingDoc.data().content || '';
+            await window.TC_QUOTE_DB.collection('crm_customers').doc(existingDoc.id).update({
+                content: prevContent + '\n' + quoteNote,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('[CRM] 기존 고객에 견적 이력 추가 완료');
+        } else {
+            // 신규 고객 → CRM 레코드 생성
+            const noSnap = await window.TC_QUOTE_DB.collection('crm_customers').orderBy('no', 'desc').limit(1).get();
+            let newNo = 1;
+            if (!noSnap.empty) newNo = (noSnap.docs[0].data().no || 0) + 1;
+
+            // KST 기준 날짜 (UTC+9)
+            const now = new Date();
+            const kstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+            const dateStr = kstDate.toISOString().slice(0, 10);
+
+            await window.TC_QUOTE_DB.collection('crm_customers').add({
+                no: newNo,
+                name: cName,
+                brand: '테라까사',
+                date: dateStr,
+                year: now.getFullYear() + '년',
+                month: (now.getMonth() + 1) + '월',
+                channel: '스마트견적',
+                consent: '동의',
+                phone: phoneFormatted,
+                email: '',
+                product: productStr,
+                custType: '개인',
+                grade: '',
+                grade2: '',
+                province: province,
+                district: district,
+                address: addrDetail,
+                assignedBranch: '',
+                status: '미배정',
+                content: quoteNote,
+                source: 'live',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('[CRM] 신규 고객 CRM 등록 완료, no:', newNo);
+        }
+    } catch(e) {
+        console.error('[CRM] saveQuotationToCRM 오류:', e);
     }
 }

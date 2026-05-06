@@ -39,7 +39,7 @@ const deckColorCategories = [
     ]},
 ];
 
-const deckColorPriceMap = { natural: 85000, artificial: 95000, wood: 95000 };
+const deckColorPriceMap = { natural: 80000, artificial: 90000, wood: 90000 };
 
 const deckColorImageMap = {
     '거창석 st (연회색)': 'images/거창석.png',
@@ -762,7 +762,7 @@ function syncAutoCalcItems() {
     if (zipScreenTotalQty > 0 && !zipScreenConsFound) {
         addConsRow({ cat: '직접 공사비', name: 'Zip Screen', spec: '기술료/시공자재비', price: 0 });
     }
-    if (stoneDeckPedestalQty > 0 && !stoneDeckPedestalConsFound) {
+    if ((stoneDeckPedestalQty > 0 || stoneDeckTubeQty > 0) && !stoneDeckPedestalConsFound) {
         addConsRow({ cat: '직접 공사비', name: '스톤데크', spec: '스톤데크+페데스탈 시공', unit: 'm2', price: 30000 });
     }
     if (stoneDeckTubeQty > 0 && !stoneDeckTubeConsFound) {
@@ -907,8 +907,9 @@ function syncAutoCalcItems() {
         // 스톤 데크 수량(m2) 자동 연동
         if (nameInput && nameInput.value === "스톤데크") {
             if (specInput && specInput.value.includes("페데스탈")) {
-                if (stoneDeckPedestalQty > 0) {
-                    if(qtyInput) qtyInput.value = Math.ceil(stoneDeckPedestalQty);
+                const combinedDeckQty = stoneDeckPedestalQty + stoneDeckTubeQty;
+                if (combinedDeckQty > 0) {
+                    if(qtyInput) qtyInput.value = Math.ceil(combinedDeckQty);
                     priceInput.value = 30000;
                     row.querySelector('td:nth-child(4) input').value = "m2";
                 } else {

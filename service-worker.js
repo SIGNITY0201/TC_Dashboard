@@ -1,4 +1,4 @@
-const CACHE_NAME = 'terracasa-v1.0';
+const CACHE_NAME = 'terracasa-v2.1';
 const ASSETS = [
   './',
   './index.html',
@@ -6,11 +6,17 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './manifest.json',
-  './quotation/',
   './quotation/index.html',
   './quotation/app.js',
   './quotation/styles.css',
-  './contract/',
+  './quotation/images/거창석.png',
+  './quotation/images/고흥석.png',
+  './quotation/images/마천석.png',
+  './quotation/images/그레이.png',
+  './quotation/images/다크그레이.png',
+  './quotation/images/아이보리.png',
+  './quotation/images/베이지.png',
+  './quotation/images/우드.png',
   './contract/index.html'
 ];
 

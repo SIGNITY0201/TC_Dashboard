@@ -86,26 +86,44 @@ function calcDeckSpec(el) {
     const tr = el.closest('tr');
     const topW = parseFloat(tr.querySelector('.spec-top-w')?.value) || 0;
     const topH = parseFloat(tr.querySelector('.spec-top-h')?.value) || 0;
-    const botW = parseFloat(tr.querySelector('.spec-bot-w')?.value) || 0;
-    const botH = parseFloat(tr.querySelector('.spec-bot-h')?.value) || 0;
-    const topArea = (topW * topH) / 1000000;
-    const botArea = (botW * botH) / 1000000;
-    const totalArea = Math.round((topArea + botArea) * 100) / 100;
+    const totalArea = (topW * topH) / 1000000;
     const qtyInput = tr.querySelector('.qty');
-    qtyInput.value = totalArea > 0 ? totalArea : '';
+    qtyInput.value = totalArea > 0 ? Math.ceil(totalArea) : '';
+    calcRow(el);
+}
+
+function calcCheolpanSpec(el) {
+    const tr = el.closest('tr');
+    const length = parseFloat(tr.querySelector('.spec-cheol-length')?.value) || 0;
+    const height = parseFloat(tr.querySelector('.spec-cheol-height')?.value) || 0;
+    const qtyInput = tr.querySelector('.qty');
+    if (length > 0) {
+        const baseQty = Math.ceil(length / 1000);
+        const heightMultiplier = height > 600 ? 2 : 1;
+        qtyInput.value = baseQty * heightMultiplier;
+    } else {
+        qtyInput.value = '';
+    }
     calcRow(el);
 }
 
 function handleDeckColorChange(sel) {
     const tr = sel.closest('tr');
     const priceInput = tr.querySelector('.price');
+    const prodSelect = tr.querySelector('td:nth-child(2) select');
     updateDeckColorPreview(tr, sel.value);
     if (!sel.value) { calcRow(sel); return; }
-    const colorType = getDeckColorType(sel.value);
-    if (colorType) {
-        const unitPrice = deckColorPriceMap[colorType];
-        priceInput.dataset.basePrice = unitPrice;
-        priceInput.value = unitPrice;
+    // 스톤 첼판은 색상과 무관하게 단가 고정 (40,000원)
+    if (prodSelect && prodSelect.value === '스톤 첼판') {
+        priceInput.dataset.basePrice = 40000;
+        priceInput.value = 40000;
+    } else {
+        const colorType = getDeckColorType(sel.value);
+        if (colorType) {
+            const unitPrice = deckColorPriceMap[colorType];
+            priceInput.dataset.basePrice = unitPrice;
+            priceInput.value = unitPrice;
+        }
     }
     calcRow(sel);
 }
@@ -144,7 +162,7 @@ const productCategories = [
     },
     {
         label: "Deck",
-        items: ["스톤 데크 (+페데스탈)", "스톤 데크 (+각관)", "스톤 스텝 (+각관)"]
+        items: ["스톤 데크 (+페데스탈)", "스톤 데크 (+각관)", "스톤 첼판"]
     },
     {
         label: "기타",
@@ -440,12 +458,13 @@ function handleProdChange(sel) {
     const isOasis = sel.value.includes("OASIS");
     const isMirage = sel.value === "Mirage";
     const isGlass = sel.value.includes("Glass");
-    const isDeck = sel.value.includes("스톤 데크") || sel.value.includes("스톤 스텝");
+    const isDeck = sel.value.includes("스톤 데크");
+    const isCheolpan = sel.value === "스톤 첼판";
     const isZipScreen = sel.value === "Zip Screen";
 
     if (isOasis || isGlass || isMirage || isZipScreen) {
         otherOption.textContent = "기타 (+15%)";
-    } else if (!isDeck) {
+    } else if (!isDeck && !isCheolpan) {
         otherOption.textContent = "기타 (할증)";
         colorSelect.disabled = true;
     }
@@ -488,9 +507,17 @@ function handleProdChange(sel) {
         optionCell.innerHTML = '<input type="text" class="excel-input" placeholder="옵션 입력">';
         tr.querySelector('td:nth-child(6) input').value = "m2";
     } else if (isDeck) {
-        specCell.innerHTML = `<div class="spec-container"><div class="spec-row"><span class="spec-label" style="width:auto;font-size:10px;">상판</span><input type="tel" class="excel-input spec-input spec-top-w" placeholder="가로" style="width:50px;" oninput="calcDeckSpec(this)"><span class="spec-unit">×</span><input type="tel" class="excel-input spec-input spec-top-h" placeholder="세로" style="width:50px;" oninput="calcDeckSpec(this)"><span class="spec-unit">mm</span></div><div class="spec-row"><span class="spec-label" style="width:auto;font-size:10px;">첼판</span><input type="tel" class="excel-input spec-input spec-bot-w" placeholder="가로" style="width:50px;" oninput="calcDeckSpec(this)"><span class="spec-unit">×</span><input type="tel" class="excel-input spec-input spec-bot-h" placeholder="높이" style="width:50px;" oninput="calcDeckSpec(this)"><span class="spec-unit">mm</span></div></div>`;
+        specCell.innerHTML = `<div class="spec-container"><div class="spec-row"><span class="spec-label" style="width:auto;font-size:10px;">상판</span><input type="tel" class="excel-input spec-input spec-top-w" placeholder="가로" style="width:50px;" oninput="calcDeckSpec(this)"><span class="spec-unit">×</span><input type="tel" class="excel-input spec-input spec-top-h" placeholder="세로" style="width:50px;" oninput="calcDeckSpec(this)"><span class="spec-unit">mm</span></div></div>`;
         optionCell.innerHTML = `<input type="text" class="excel-input" placeholder="옵션 입력">`;
         tr.querySelector('td:nth-child(6) input').value = "m2";
+        colorSelect.innerHTML = buildDeckColorSelectHTML();
+        colorSelect.disabled = false;
+        colorSelect.setAttribute('onchange', 'handleDeckColorChange(this)');
+        tr.querySelector('.qty').readOnly = true;
+    } else if (isCheolpan) {
+        specCell.innerHTML = `<div class="spec-container"><div class="spec-row"><span class="spec-label" style="width:auto;font-size:10px;">첼판</span><input type="tel" class="excel-input spec-input spec-cheol-length" placeholder="길이" style="width:50px;" oninput="calcCheolpanSpec(this)"><span class="spec-unit">×</span><input type="tel" class="excel-input spec-input spec-cheol-height" placeholder="높이" style="width:50px;" oninput="calcCheolpanSpec(this)"><span class="spec-unit">mm</span></div></div>`;
+        optionCell.innerHTML = `<input type="text" class="excel-input" placeholder="옵션 입력">`;
+        tr.querySelector('td:nth-child(6) input').value = "m";
         colorSelect.innerHTML = buildDeckColorSelectHTML();
         colorSelect.disabled = false;
         colorSelect.setAttribute('onchange', 'handleDeckColorChange(this)');
@@ -580,9 +607,11 @@ function calcRow(el) {
         basePrice = 350000;
     } else if (prodName === "Fix Glass") {
         basePrice = 150000;
-    } else if (prodName.includes("스톤 데크") || prodName.includes("스톤 스텝")) {
+    } else if (prodName.includes("스톤 데크")) {
         // 데크: 색상 기반 단가 — handleDeckColorChange에서 설정
         // basePrice는 dataset에서 가져옴 (변경 없음)
+    } else if (prodName === "스톤 첼판") {
+        basePrice = 40000;
     } else if (prodName === "Zip Screen") {
         // 사용자가 객단가를 직접 수정한 경우(data-user-edited) 그 값을 유지
         if (priceInput.dataset.userEdited === 'true') {
@@ -631,7 +660,7 @@ function syncAutoCalcItems() {
     let fixGlassQty = 0;
     let stoneDeckPedestalQty = 0;  // 스톤 데크 (+페데스탈)
     let stoneDeckTubeQty = 0;     // 스톤 데크 (+각관)
-    let stoneStepTubeQty = 0;     // 스톤 스텝 (+각관)
+    let stoneCheolpanQty = 0;     // 스톤 첼판
     let hasManualOasisLed = false;
     let mirageTotalQty = 0;
     let mirageConsData = []; // 각 Mirage 행의 스팬*피봇 면적 저장
@@ -651,7 +680,7 @@ function syncAutoCalcItems() {
             if (prodName.includes("Fix Glass")) fixGlassQty += qty;
             if (prodName === "스톤 데크 (+페데스탈)") stoneDeckPedestalQty += qty;
             if (prodName === "스톤 데크 (+각관)") stoneDeckTubeQty += qty;
-            if (prodName === "스톤 스텝 (+각관)") stoneStepTubeQty += qty;
+            if (prodName === "스톤 첼판") stoneCheolpanQty += qty;
 
             if (prodName.includes("OASIS (수동)")) {
                 if (row.querySelector('.opt-led')?.checked) {
@@ -681,7 +710,8 @@ function syncAutoCalcItems() {
     let newOasisConsFound = false;
     let stoneDeckPedestalConsFound = false;
     let stoneDeckTubeConsFound = false;
-    let stoneStepTubeConsFound = false;
+    let stoneDeckTubeMaterialFound = false;
+    let stoneCheolpanConsFound = false;
     let mirageConsFound = false;
     let zipScreenConsFound = false;
 
@@ -698,12 +728,15 @@ function syncAutoCalcItems() {
             if (nameInput.value === "Mirage") mirageConsFound = true;
             if (nameInput.value === "Zip Screen") zipScreenConsFound = true;
 
-            if (nameInput.value === "스톤 데크") {
+            if (nameInput.value === "스톤데크") {
                 if (specInput && specInput.value.includes("페데스탈")) stoneDeckPedestalConsFound = true;
                 if (specInput && specInput.value.includes("각관")) stoneDeckTubeConsFound = true;
             }
-            if (nameInput.value === "스톤 스텝") {
-                if (specInput && specInput.value.includes("각관")) stoneStepTubeConsFound = true;
+            if (nameInput.value === "각관") {
+                if (specInput && specInput.value.includes("각관 구입비")) stoneDeckTubeMaterialFound = true;
+            }
+            if (nameInput.value === "스톤 첼판") {
+                stoneCheolpanConsFound = true;
             }
         }
     });
@@ -730,13 +763,16 @@ function syncAutoCalcItems() {
         addConsRow({ cat: '직접 공사비', name: 'Zip Screen', spec: '기술료/시공자재비', price: 0 });
     }
     if (stoneDeckPedestalQty > 0 && !stoneDeckPedestalConsFound) {
-        addConsRow({ cat: '직접 공사비', name: '스톤 데크', spec: '스톤 데크 + 페데스탈 시공', price: 35000 });
+        addConsRow({ cat: '직접 공사비', name: '스톤데크', spec: '스톤데크+페데스탈 시공', unit: 'm2', price: 30000 });
     }
     if (stoneDeckTubeQty > 0 && !stoneDeckTubeConsFound) {
-        addConsRow({ cat: '직접 공사비', name: '스톤 데크', spec: '스톤 데크 + 각관 시공', price: 75000 });
+        addConsRow({ cat: '직접 공사비', name: '스톤데크', spec: '+ 각관 시공', unit: 'm2', price: 30000 });
     }
-    if (stoneStepTubeQty > 0 && !stoneStepTubeConsFound) {
-        addConsRow({ cat: '직접 공사비', name: '스톤 스텝', spec: '스톤 스텝 + 각관 시공', price: 75000 });
+    if (stoneDeckTubeQty > 0 && !stoneDeckTubeMaterialFound) {
+        addConsRow({ cat: '자재 구입비', name: '각관', spec: '각관 구입비 및 운임', unit: 'm2', price: 40000 });
+    }
+    if (stoneCheolpanQty > 0 && !stoneCheolpanConsFound) {
+        addConsRow({ cat: '직접 공사비', name: '스톤 첼판', spec: '첼판 마감 비용', unit: 'm', price: 30000 });
     }
 
     const consRows = document.querySelectorAll('#cons-tbody tr');
@@ -836,7 +872,7 @@ function syncAutoCalcItems() {
             if (zipScreenTotalQty > 0) requiredTrucks += 1;
             if (stoneDeckPedestalQty > 0) requiredTrucks += 1;
             if (stoneDeckTubeQty > 0) requiredTrucks += 1;
-            if (stoneStepTubeQty > 0) requiredTrucks += 1;
+            if (stoneCheolpanQty > 0) requiredTrucks += 1;
             if (qtyInput) qtyInput.value = requiredTrucks > 0 ? requiredTrucks : 1;
             calcCons(qtyInput, false);
         }
@@ -869,11 +905,11 @@ function syncAutoCalcItems() {
         }
 
         // 스톤 데크 수량(m2) 자동 연동
-        if (nameInput && nameInput.value === "스톤 데크") {
+        if (nameInput && nameInput.value === "스톤데크") {
             if (specInput && specInput.value.includes("페데스탈")) {
                 if (stoneDeckPedestalQty > 0) {
-                    if(qtyInput) qtyInput.value = stoneDeckPedestalQty;
-                    priceInput.value = 35000;
+                    if(qtyInput) qtyInput.value = Math.ceil(stoneDeckPedestalQty);
+                    priceInput.value = 30000;
                     row.querySelector('td:nth-child(4) input').value = "m2";
                 } else {
                     if(qtyInput) qtyInput.value = 0;
@@ -883,8 +919,8 @@ function syncAutoCalcItems() {
             }
             if (specInput && specInput.value.includes("각관")) {
                 if (stoneDeckTubeQty > 0) {
-                    if(qtyInput) qtyInput.value = stoneDeckTubeQty;
-                    priceInput.value = 75000;
+                    if(qtyInput) qtyInput.value = Math.ceil(stoneDeckTubeQty);
+                    priceInput.value = 30000;
                     row.querySelector('td:nth-child(4) input').value = "m2";
                 } else {
                     if(qtyInput) qtyInput.value = 0;
@@ -893,12 +929,12 @@ function syncAutoCalcItems() {
                 calcCons(qtyInput, false);
             }
         }
-        // 스톤 스텝 수량(m2) 자동 연동
-        if (nameInput && nameInput.value === "스톤 스텝") {
-            if (specInput && specInput.value.includes("각관")) {
-                if (stoneStepTubeQty > 0) {
-                    if(qtyInput) qtyInput.value = stoneStepTubeQty;
-                    priceInput.value = 75000;
+        // 각관 자재 구입비 자동 연동
+        if (nameInput && nameInput.value === "각관") {
+            if (specInput && specInput.value.includes("각관 구입비")) {
+                if (stoneDeckTubeQty > 0) {
+                    if(qtyInput) qtyInput.value = Math.ceil(stoneDeckTubeQty);
+                    priceInput.value = 40000;
                     row.querySelector('td:nth-child(4) input').value = "m2";
                 } else {
                     if(qtyInput) qtyInput.value = 0;
@@ -906,6 +942,18 @@ function syncAutoCalcItems() {
                 }
                 calcCons(qtyInput, false);
             }
+        }
+        // 스톤 첼판 수량(m) 자동 연동
+        if (nameInput && nameInput.value === "스톤 첼판") {
+            if (stoneCheolpanQty > 0) {
+                if(qtyInput) qtyInput.value = Math.ceil(stoneCheolpanQty);
+                priceInput.value = 30000;
+                row.querySelector('td:nth-child(4) input').value = "m";
+            } else {
+                if(qtyInput) qtyInput.value = 0;
+                priceInput.value = 0;
+            }
+            calcCons(qtyInput, false);
         }
     });
 
@@ -935,7 +983,7 @@ function sortConsRows() {
         const bCat = b.querySelector('td:nth-child(1) input').value;
 
         const getPriority = (cat, name) => {
-            if (name === "OASIS" || name === "New OASIS" || name === "Glass Sliding" || name === "Glass Folding" || name === "Fix Glass" || name === "스톤 데크" || name === "스톤 스텝" || name === "Mirage" || name === "Zip Screen") return 1;
+            if (name === "OASIS" || name === "New OASIS" || name === "Glass Sliding" || name === "Glass Folding" || name === "Fix Glass" || name === "스톤데크" || name === "스톤 첼판" || name === "각관" || name === "Mirage" || name === "Zip Screen") return 1;
             if (name === "기초석" || name === "경비") return 2;
             if (cat === "자재 반입비") return 3;
             if (cat === "간접 공사비") return 4;
@@ -960,11 +1008,11 @@ function initConsTable() { defaultConsItems.forEach(item => addConsRow(item)); }
 
 function addConsRow(item = null) {
     const tbody = document.getElementById('cons-tbody'); const tr = document.createElement('tr');
-    const cat = item ? item.cat : ''; const name = item ? item.name : ''; const spec = item ? item.spec : ''; const price = item && item.price ? item.price : ''; const isPercent = item && item.isPercent; const isProductSelect = item && item.isProductSelect;
+    const cat = item ? item.cat : ''; const name = item ? item.name : ''; const spec = item ? item.spec : ''; const price = item && item.price ? item.price : ''; const isPercent = item && item.isPercent; const isProductSelect = item && item.isProductSelect; const unit = item && item.unit ? item.unit : '식';
 
     let nameField = `<input type="text" class="excel-input ${isPercent ? 'auto-calc-field name-field' : ''}" value="${name}" placeholder="항목명" ${isPercent ? 'readonly' : ''}>`;
 
-    tr.innerHTML = `<td><input type="text" class="excel-input text-center" value="${cat}" placeholder="구분"></td><td>${nameField}</td><td>${isProductSelect ? '<input type="text" class="excel-input" value="기술료/시공자재비" readonly>' : `<input type="text" class="excel-input" value="${spec}" placeholder="상세내용">`}</td><td><input type="text" class="excel-input text-center" value="식"></td><td><input type="text" class="excel-input text-center c-qty" oninput="calcCons(this)" placeholder="1" value="1" ${isPercent ? 'readonly' : ''}></td><td><input type="text" class="excel-input text-right c-price ${isPercent ? 'auto-calc-field' : ''}" oninput="calcCons(this)" placeholder="0" value="${price}" ${isPercent ? 'readonly' : ''}></td><td class="text-right px-2"><span class="c-sum">0</span></td><td class="text-center hidden-on-print"><button onclick="delRow(this)" class="text-red-500 font-bold p-1 text-sm">×</button></td>`;
+    tr.innerHTML = `<td><input type="text" class="excel-input text-center" value="${cat}" placeholder="구분"></td><td>${nameField}</td><td>${isProductSelect ? '<input type="text" class="excel-input" value="기술료/시공자재비" readonly>' : `<input type="text" class="excel-input" value="${spec}" placeholder="상세내용">`}</td><td><input type="text" class="excel-input text-center" value="${unit}"></td><td><input type="text" class="excel-input text-center c-qty" oninput="calcCons(this)" placeholder="1" value="1" ${isPercent ? 'readonly' : ''}></td><td><input type="text" class="excel-input text-right c-price ${isPercent ? 'auto-calc-field' : ''}" oninput="calcCons(this)" placeholder="0" value="${price}" ${isPercent ? 'readonly' : ''}></td><td class="text-right px-2"><span class="c-sum">0</span></td><td class="text-center hidden-on-print"><button onclick="delRow(this)" class="text-red-500 font-bold p-1 text-sm">×</button></td>`;
     let insertIndex = -1; if (cat) { const rows = Array.from(tbody.children); for(let i = rows.length - 1; i >= 0; i--) { if(rows[i].querySelector('td:nth-child(1) input').value === cat) { insertIndex = i; break; } } }
     if(insertIndex !== -1) tbody.children[insertIndex].after(tr); else tbody.appendChild(tr);
     if(name === "항목명") {
@@ -1192,7 +1240,7 @@ function getProductSummary() {
         else if (prodName === 'Fix Glass') shortName = '픽스글라스';
         else if (prodName.includes('스톤 데크') && prodName.includes('페데스탈')) shortName = '스톤데크페데';
         else if (prodName.includes('스톤 데크') && prodName.includes('각관')) shortName = '스톤데크각관';
-        else if (prodName.includes('스톤 스텝')) shortName = '스톤스텝각관';
+        else if (prodName === '스톤 첼판') shortName = '스톤첼판';
         else if (prodName === 'Zip Screen') shortName = '집스크린';
 
         // 옵션 수집
@@ -1295,6 +1343,13 @@ async function saveAsPDF() {
 
         doc.save(fileName);
 
+        // CRM 자동 저장 (PDF 저장 성공 후)
+        try {
+            await saveQuotationToCRM();
+        } catch (crmErr) {
+            console.error('[CRM] 저장 실패 (PDF는 정상 저장됨):', crmErr);
+        }
+
     } catch (err) {
         console.error(err);
         alert('PDF 생성 중 오류가 발생했습니다.\n' + err.message);
@@ -1373,5 +1428,99 @@ function syncInputValues(originalDom, clonedDom) {
          if (originalMsgs.length > 0) {
              originalMsgs.forEach(msg => clonedMsgArea.appendChild(msg.cloneNode(true)));
          }
+    }
+}
+
+// ========== 견적 CRM 연동 (OSKA Firestore) ==========
+async function saveQuotationToCRM() {
+    // Firebase 인증 대기
+    if (!window.TC_QUOTE_DB && window._tcAuthReady) {
+        try { await Promise.race([window._tcAuthReady, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))]); } catch(e) { /* timeout */ }
+    }
+    if (!window.TC_QUOTE_DB) {
+        console.warn('[CRM] Firebase 미연결 — CRM 저장 생략');
+        return;
+    }
+
+    try {
+        const cName = document.getElementById('cust-name').value || '';
+        const cPhone = document.getElementById('cust-phone').value || '';
+        const province = document.getElementById('region-do').value || '';
+        const district = document.getElementById('region-si').value || '';
+        const addrDetail = document.getElementById('cust-addr-detail') ? document.getElementById('cust-addr-detail').value || '' : '';
+
+        // 전화번호 없으면 CRM 저장 불가
+        if (!cPhone || cPhone.replace(/[^0-9]/g, '').length < 8) {
+            console.log('[CRM] 전화번호 없음 — CRM 저장 생략');
+            return;
+        }
+
+        // 견적 품목 수집
+        const products = [];
+        document.querySelectorAll('#est-tbody tr').forEach(tr => {
+            const prod = tr.querySelector('td:nth-child(2) select');
+            const sum = tr.querySelector('.sum');
+            if (prod && prod.value && prod.value !== '제품 선택') {
+                products.push({ product: prod.value, amount: sum ? sum.textContent : '0' });
+            }
+        });
+
+        const totalPrice = document.getElementById('val-total') ? document.getElementById('val-total').textContent : '0';
+        const phoneNorm = cPhone.replace(/[^0-9]/g, '');
+        const now = new Date();
+        const dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        const productStr = products.map(p => p.product).join(', ');
+        const quoteNote = `[TC견적 ${dateStr}] 금액: ₩${totalPrice} / 품목: ${productStr}`;
+
+        // 기존 고객 확인 (전화번호 기준)
+        const allSnap = await window.TC_QUOTE_DB.collection('crm_customers').get();
+        let existingDoc = null;
+        allSnap.forEach(doc => {
+            const p = (doc.data().phone || '').replace(/[^0-9]/g, '');
+            if (p === phoneNorm) existingDoc = doc;
+        });
+
+        if (existingDoc) {
+            // 기존 고객 → content에 견적 이력 추가 (고도화)
+            const prevContent = existingDoc.data().content || '';
+            await window.TC_QUOTE_DB.collection('crm_customers').doc(existingDoc.id).update({
+                content: prevContent + '\n' + quoteNote,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('[CRM] 기존 고객에 견적 이력 추가 완료');
+        } else {
+            // 신규 고객 등록
+            const noSnap = await window.TC_QUOTE_DB.collection('crm_customers').orderBy('no', 'desc').limit(1).get();
+            let newNo = 1;
+            if (!noSnap.empty) newNo = (noSnap.docs[0].data().no || 0) + 1;
+
+            await window.TC_QUOTE_DB.collection('crm_customers').add({
+                no: newNo,
+                brand: '테라까사',
+                date: dateStr,
+                year: now.getFullYear() + '년',
+                month: (now.getMonth() + 1) + '월',
+                channel: '자동견적',
+                consent: '동의',
+                phone: cPhone,
+                email: '',
+                product: productStr,
+                custType: '개인',
+                grade: '',
+                grade2: '',
+                province: province,
+                district: district,
+                address: addrDetail,
+                assignedBranch: '',
+                status: '미배정',
+                content: quoteNote,
+                source: 'tc_quotation',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('[CRM] 신규 고객 등록 완료 (테라까사 자동견적)');
+        }
+    } catch (err) {
+        console.error('[CRM] 저장 오류:', err);
+        // CRM 저장 실패해도 PDF 저장에는 영향 없음
     }
 }
